@@ -1,0 +1,1 @@
+This is a github repos for my statistical rethinking analysis

@@ -1,0 +1,305 @@
+---
+title: "Rethinking Stats Ch7"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Easy
+###Problem 1
+#####1
+Heat is applied and yeast makes dough rise
+#####2
+People from well off families get a good education and hence have a higher income
+#####3
+An engine uses gasoline to make a car go
+
+###Problem 2
+#####1
+Caramelizing onions requres both low heat and making sure the onions do not dry out - so there is an interaction.
+#####2
+There is no interaction - eitehr can make a car go faster, and the combination of the two is potentially linear.
+#####3
+They can get them from their parents or their friends - this implies an interaction.
+#####4
+Or - this implies an interaction.
+
+#Medium
+###Problem 1
+Heat automatically prevents tulips from growing - we could rewrite the coefficients as being multiplied by a binary variable for whether or not the data was collected in a hot or cold climate.
+
+###Problem 2
+Multiply all coefficients by a 1/0 indicator to indicate whether or not the climate is cold or hot.
+
+#Hard
+###Problem 1
+```{r}
+library(rethinking)
+data(tulips)
+d <- tulips
+d.index <- d
+d.index$bed.index <- coerce_index(d.index$bed)
+d.index$shade.std <- (d$shade - mean(d$shade))/sd(d$shade)
+d.index$water.std <- (d$water - mean(d$water))/sd(d$water)
+
+m7.8 <- map(
+  alist(
+    blooms ~ dnorm(mu, sigma),
+    mu <- a + bW*water.std + bS*shade.std + bWS*water.std*shade.std,
+    a ~ dnorm(130, 100),
+    bW ~ dnorm(0, 100),
+    bS ~ dnorm(0, 100),
+    bWS ~ dnorm(0, 100),
+    sigma ~dunif(0, 100)
+  ),
+  data  = d.index,
+  start = list(a = 130, bW = 0, bS= 0, bWS = 0, sigma=sd(d$blooms))
+)
+
+m7.9 <- map(
+  alist(
+    blooms ~ dnorm(mu, sigma),
+    mu <- a[bed.index] + bW*water.std + bS*shade.std + bWS*water.std*shade.std,
+    a[bed.index] ~ dnorm(130, 100),
+    bW ~ dnorm(0, 100),
+    bS ~ dnorm(0, 100),
+    bWS ~ dnorm(0, 100),
+    sigma ~dunif(0, 100)
+  ),
+  data  = d.index,
+  control = list(maxit=1e4),
+  method = "Nelder-Mead",
+  start = list(a = c(130, 130, 130), bW=0, bS= 0, bWS = 0, sigma=sd(d$blooms))
+)
+precis(m7.9, depth = 2)
+```
+
+###Problem 2
+```{r}
+coeftab(m7.8, m7.9)
+compare(m7.8, m7.9)
+precis(m7.8)
+precis(m7.9, depth = 2)
+```
+
+So when we look at the posterior distribution of a[1],  the 94.5% percentile level is 118.4, as compared to a mean pooled value of 129 - which inclines the model to say the values shouldn't be pooled, which is why the WAIC of model 7.9 is lower.  Nevertheless, given the 36% weighting on m7.8, there is some evidence of overfitting using the bed variable.
+
+###Problem 3
+#####A
+```{r}
+data(rugged)
+d <- rugged
+d.subset <- subset(d, select = c(country, rgdppc_2000, cont_africa, rugged))
+d.subset <- d.subset[complete.cases(d.subset),]
+d.subset$log_gdp <- log(d.subset$rgdppc_2000)
+d.2 <- d.subset[d.subset$country != "Seychelles",]
+m.afr1 <- map(
+  alist(
+    log_gdp ~ dnorm(mu, sigma),
+    mu <- a + gamma*rugged + bA*cont_africa,
+    gamma <- bR + bAR*cont_africa,
+    a ~ dnorm(8, 100),
+    bA ~ dnorm(0, 1),
+    bR ~ dnorm(0, 1),
+    bAR ~ dnorm(0, 1),
+    sigma ~dunif(0, 10)
+  ),
+  data = d.subset
+)
+m.afr2 <- map(
+  alist(
+    log_gdp ~ dnorm(mu, sigma),
+    mu <- a + gamma*rugged + bA*cont_africa,
+    gamma <- bR + bAR*cont_africa,
+    a ~ dnorm(8, 100),
+    bA ~ dnorm(0, 1),
+    bR ~ dnorm(0, 1),
+    bAR ~ dnorm(0, 1),
+    sigma ~dunif(0, 10)
+  ),
+  data = d.2
+)
+
+precis(m.afr1)
+precis(m.afr2)
+
+```
+
+The effect of the ruggedness still depends on continent.  However, in the case of Africa without the Seychelles, it seems like roughness may have no effect, whereas it has a negative effect on GDP in other environments.
+
+#####B
+```{r}
+#Generate the mean/PI information for our graphs
+rugged.seq <- seq(from = -1, to =8, by =0.25)
+
+mu.Africa <- link(m.afr1, data=data.frame(cont_africa=1, rugged = rugged.seq))
+mu.Africa.mean <- apply(mu.Africa$mu, 2, mean)
+mu.Africa.PI <- apply(mu.Africa$mu, 2, PI, prob = .89)
+
+mu.NotAfrica <- link(m.afr1, data=data.frame(cont_africa=0, rugged = rugged.seq))
+mu.NotAfrica.mean <- apply(mu.NotAfrica$mu, 2, mean)
+mu.NotAfrica.PI <- apply(mu.NotAfrica$mu, 2, PI, prob = .89)
+
+#Now repeat for the Seychelles model
+mu.Africa.ns <- link(m.afr2, data=data.frame(cont_africa=1, rugged = rugged.seq))
+mu.Africa.mean.ns <- apply(mu.Africa.ns$mu, 2, mean)
+mu.Africa.PI.ns <- apply(mu.Africa$mu, 2, PI, prob = .89)
+
+mu.NotAfrica.ns <- link(m.afr2, data=data.frame(cont_africa=0, rugged = rugged.seq))
+mu.NotAfrica.mean.ns <- apply(mu.NotAfrica.ns$mu, 2, mean)
+mu.NotAfrica.PI.ns <- apply(mu.NotAfrica.ns$mu, 2, PI, prob = .89)
+
+#Generate the plots
+par(mfrow = c(2,2))
+d.A1 <- d.subset[d.subset$cont_africa==1,]
+plot(log_gdp ~ rugged, data = d.A1, col = rangi2, ylab = "Log GDP year 2000", xlab = "Terrain Ruggedness Index")
+mtext("African Nations", 3)
+lines(rugged.seq, mu.Africa.mean, col = rangi2)
+shade(mu.Africa.PI, rugged.seq, col = col.alpha(rangi2, 0.3))
+
+d.A0 <- d.subset[d.subset$cont_africa==0,]
+plot(log_gdp ~ rugged, data = d.A0, col = rangi2, ylab = "Log GDP year 2000", xlab = "Terrain Ruggedness Index")
+mtext("Non-African Nations", 3)
+lines(rugged.seq, mu.NotAfrica.mean, col = rangi2)
+shade(mu.NotAfrica.PI, rugged.seq, col = col.alpha(rangi2, 0.3))
+
+#Now without the Seychelles
+d.A1.ns <- d.2[d.2$cont_africa==1,]
+plot(log_gdp ~ rugged, data = d.A1.ns, col = rangi2, ylab = "Log GDP year 2000", xlab = "Terrain Ruggedness Index")
+mtext("African Nations ex Sey", 3)
+lines(rugged.seq, mu.Africa.mean.ns, col = rangi2)
+shade(mu.Africa.PI.ns, rugged.seq, col = col.alpha(rangi2, 0.3))
+
+d.A0.ns <- d.2[d.2$cont_africa==0,]
+plot(log_gdp ~ rugged, data = d.A0.ns, col = rangi2, ylab = "Log GDP year 2000", xlab = "Terrain Ruggedness Index")
+mtext("Non-African Nations ex Sey", 3)
+lines(rugged.seq, mu.NotAfrica.mean.ns, col = rangi2)
+shade(mu.NotAfrica.PI.ns, rugged.seq, col = col.alpha(rangi2, 0.3))
+
+```
+
+The effect still looks like it varies by continent; however, the effect looks much less pronounced in Africa.  In total, the slope coefficient for Africa has gone down to .06 from .17, while not Africa is largely unchanged (-.18 w/ Seychelles to -.19 with it).
+
+#####C
+```{r}
+m.afr3 <- map(
+  alist(
+    log_gdp ~ dnorm(mu, sigma),
+    mu <- a + bR*rugged,
+    a ~ dnorm(8, 100),
+    bR ~ dnorm(0, 1),
+    sigma ~dunif(0, 10)
+  ),
+  data = d.2
+)
+
+m.afr4 <- map(
+  alist(
+    log_gdp ~ dnorm(mu, sigma),
+    mu <- a + bR*rugged + bA*cont_africa,
+    a ~ dnorm(8, 100),
+    bR ~ dnorm(0, 1),
+    bA ~ dnorm(0, 1),
+    sigma ~dunif(0, 10)
+  ),
+  data = d.2
+)
+
+coeftab(m.afr2, m.afr3, m.afr4)
+compare(m.afr2, m.afr3, m.afr4)
+
+#Model averaged version for not Africa
+par(mfrow=c(1, 2))
+afr.ensemble.NA <- ensemble(m.afr2, m.afr3, m.afr4, data = data.frame(cont_africa=0, rugged = rugged.seq))
+mu.ensemble.NA <- apply(afr.ensemble.NA$link, 2, mean)
+mu.ensemble.PI.NA <- apply(afr.ensemble.NA$link, 2, PI)
+plot(log_gdp ~ rugged, data = d.A1, col = rangi2, ylab = "Log GDP year 2000", xlab = "Terrain Ruggedness Index")
+mtext("African Nations", 3)
+lines(rugged.seq, mu.ensemble.NA)
+shade(mu.ensemble.PI.NA, rugged.seq)
+
+#Model averaged version for Africa
+afr.ensemble <- ensemble(m.afr2, m.afr3, m.afr4, data = data.frame(cont_africa=1, rugged = rugged.seq))
+mu.ensemble <- apply(afr.ensemble$link, 2, mean)
+mu.ensemble.PI <- apply(afr.ensemble$link, 2, PI)
+plot(log_gdp ~ rugged, data = d.A0, col = rangi2, ylab = "Log GDP year 2000", xlab = "Terrain Ruggedness Index")
+mtext("Non-African Nations", 3)
+lines(rugged.seq, mu.ensemble)
+shade(mu.ensemble.PI, rugged.seq)
+```
+
+So we see that the model with interactions has a lower WAIC, and but that we'd still place a weight of 23% on the fully pooled model.  Looking at the plot of Log GDP versus Terrain Ruggedness Index, we see that the Non-African nations are almost flat with respect to the terrain ruggedness index.
+
+###Problem 4
+#####A
+```{r}
+#Start up, standardize the data
+data("nettle")
+d <- nettle
+d$lang.per.cap <- d$num.lang / d$k.pop
+d$log.lang.per.cap <- log(d$lang.per.cap)
+d$log.area <- log(d$area)
+d$mean.growing.season.std <- (d$mean.growing.season - mean(d$mean.growing.season))/sd(d$mean.growing.season)
+d$sd.growing.season.std <- (d$sd.growing.season - mean(d$sd.growing.season))/sd(d$sd.growing.season)
+d$log.area.std <- (d$log.area - mean(d$log.area))/sd(d$mean.growing.season)
+
+m.lang.1 <- map(
+  alist(
+    log.lang.per.cap ~ dnorm(mu, sigma),
+    mu <- a + bGS*mean.growing.season.std + bA*log.area.std,
+    a <- dnorm(-5.5, 15),
+    bGS <- dnorm(0, 5),
+    bA <- dnorm(0, 5),
+    sigma <- dunif(0, 5)
+  ),
+  data = d
+)
+
+precis(m.lang.1)
+```
+
+Mean growing season has a statistically significant effect.  A one standard deviation increase in log mean growing season leads to a .45 increase in log number of languages per capita.  Further, the lower 5.5% cutoff of the PI is .17, so its pretty likely to be positively assoicated.  An increase in area is negatively associated with log languages per capita, though with lower probability.
+
+#####B
+```{r}
+m.lang.2 <- map(
+  alist(
+    log.lang.per.cap ~ dnorm(mu, sigma),
+    mu <- a + bGStd*sd.growing.season.std + bA*log.area.std,
+    a <- dnorm(-5.5, 15),
+    bGStd <- dnorm(0, 5),
+    bA <- dnorm(0, 5),
+    sigma <- dunif(0, 5)
+  ),
+  data = d
+)
+
+precis(m.lang.2)
+
+```
+
+#####C
+```{r}
+m.lang.3 <- map(
+  alist(
+    log.lang.per.cap ~ dnorm(mu, sigma),
+    mu <- a + bGS*mean.growing.season.std + bGStd*sd.growing.season.std + bGSGstd*sd.growing.season.std*mean.growing.season.std,
+    a <- dnorm(-5.5, 15),
+    bGStd <- dnorm(0, 5),
+    bGS <- dnorm(0, 5),
+    bGSGstd <- dnorm(0, 5),
+    sigma <- dunif(0, 5)
+  ),
+  data = d
+)
+
+precis(m.lang.3)
+
+coeftab(m.lang.1, m.lang.2, m.lang.3)
+compare(m.lang.1, m.lang.2, m.lang.3)
+
+```
+
+Basically this loads completely on model 3 using WAIC.

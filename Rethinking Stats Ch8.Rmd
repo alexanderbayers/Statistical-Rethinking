@@ -1,0 +1,405 @@
+---
+title: "Rethinking Stats Ch8"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Easy
+###Problem 1
+A.  FALSE
+B.  FALSE
+C.  TRUE
+
+###Problem 2
+Gibbs sampling uses conjugate priors to more efficiently explore the parameter space.  However, it requires us to use a conjugate prior rather than a more general option.
+
+###Problem 3
+Hamiltonian Monte Carlo can't handle discrete parameters, since it can't take derivatives with respect to those parameters.
+
+###Problem 4
+n_effective reduces the total number of samples to account for the autocorrelation.
+
+###Problem 5
+It should approach 1.
+
+###Problem 6
+```{r}
+good_loop <- rep(0, 1000)
+bad_loop <- rep(0, 1000)
+sample <- rnorm(1000, mean = 0, sd = 1)
+
+#Loop through the good sample loop
+autocor_coefficient <- .3
+for (i in 2:1000){
+  good_loop[i] <- autocor_coefficient * good_loop[i-1] + sample[i] 
+}
+plot(good_loop, type = "l")
+mtext("Good Trace")
+
+#Loop through the bad sample loop
+autocor_coefficient <- .97
+for (i in 2:1000){
+  bad_loop[i] <- autocor_coefficient * bad_loop[i-1] + sample[i] 
+}
+plot(bad_loop, type = "l")
+mtext("Bad Trace")
+```
+
+#Medium
+###Problem 1
+```{r}
+#Setup
+library(rethinking)
+data(rugged)
+d <- rugged
+d$log_gdp <- log(d$rgdppc_2000)
+dd <- d[complete.cases(d$rgdppc_2000),]
+dd.trim <- dd[,c("log_gdp", "rugged", "cont_africa")]
+
+#Using a Cauchy model for sigma
+m8.1stan <- map2stan(
+  alist(
+    log_gdp ~ dnorm(mu, sigma),
+    mu <- a + bR*rugged + bA*cont_africa + bAR*rugged*cont_africa,
+    a ~ dnorm(0, 100),
+    bR ~ dnorm(0, 10),
+    bA ~ dnorm(0, 10),
+    bAR ~ dnorm(0, 10),
+    sigma ~ dcauchy(0, 2)
+  ),
+data = dd.trim )
+
+precis(m8.1stan)
+
+#Using a uniform model for sigma
+m8.2stan <- map2stan(
+  alist(
+    log_gdp ~ dnorm(mu, sigma),
+    mu <- a + bR*rugged + bA*cont_africa + bAR*rugged*cont_africa,
+    a ~ dnorm(0, 100),
+    bR ~ dnorm(0, 10),
+    bA ~ dnorm(0, 10),
+    bAR ~ dnorm(0, 10),
+    sigma ~ dunif(0, 10)
+  ),
+data = dd.trim )
+
+precis(m8.2stan)
+
+#Using an exponential model for sigma
+m8.3stan <- map2stan(
+  alist(
+    log_gdp ~ dnorm(mu, sigma),
+    mu <- a + bR*rugged + bA*cont_africa + bAR*rugged*cont_africa,
+    a ~ dnorm(0, 100),
+    bR ~ dnorm(0, 10),
+    bA ~ dnorm(0, 10),
+    bAR ~ dnorm(0, 10),
+    sigma ~ dexp(1)
+  ),
+data = dd.trim )
+
+precis(m8.3stan)
+compare(m8.1stan, m8.2stan, m8.3stan)
+```
+The results are pretty similar.  When we compare the results, there is a 45% weighting on the Cauchy distribution, 33% weighting on the uniform, and a 22% weighing on the exponential distribution.  Furthermore, the intervals and coefficients are all within .01 of each other.  So there's almost no discernible influence.
+
+###Problem 2
+```{r}
+m8.4stan <- map2stan(
+  alist(
+    log_gdp ~ dnorm(mu, sigma),
+    mu <- a + bR*rugged + bA*cont_africa + bAR*rugged*cont_africa,
+    a ~ dnorm(0, 100),
+    bR ~ dnorm(0, 10),
+    bA ~ dnorm(0, 10),
+    bAR ~ dnorm(0, 10),
+    sigma ~ dexp(.75)
+  ),
+data = dd.trim )
+
+m8.5stan <- map2stan(
+  alist(
+    log_gdp ~ dnorm(mu, sigma),
+    mu <- a + bR*rugged + bA*cont_africa + bAR*rugged*cont_africa,
+    a ~ dnorm(0, 100),
+    bR ~ dnorm(0, 10),
+    bA ~ dnorm(0, 10),
+    bAR ~ dnorm(0, 10),
+    sigma ~ dexp(.5)
+  ),
+data = dd.trim )
+
+m8.6stan <- map2stan(
+  alist(
+    log_gdp ~ dnorm(mu, sigma),
+    mu <- a + bR*rugged + bA*cont_africa + bAR*rugged*cont_africa,
+    a ~ dnorm(0, 100),
+    bR ~ dnorm(0, 10),
+    bA ~ dnorm(0, 10),
+    bAR ~ dnorm(0, 10),
+    sigma ~ dexp(.25)
+  ),
+data = dd.trim )
+
+precis(m8.4stan)
+precis(m8.5stan)
+precis(m8.6stan)
+
+
+compare(m8.3stan, m8.4stan, m8.5stan, m8.6stan)
+coeftab(m8.3stan, m8.4stan, m8.5stan, m8.6stan)
+```
+It makes almost no difference.  The coefficients are pretty similar, and the ensemble weightings range from .2 to .35.
+
+###Problem 3
+```{r}
+m8.7stan <- map2stan(
+  alist(
+    log_gdp ~ dnorm(mu, sigma),
+    mu <- a + bR*rugged + bA*cont_africa + bAR*rugged*cont_africa,
+    a ~ dnorm(0, 100),
+    bR ~ dnorm(0, 10),
+    bA ~ dnorm(0, 10),
+    bAR ~ dnorm(0, 10),
+    sigma ~ dexp(1)
+  ),
+data = dd.trim,
+iter = 1100, warmup = 100)
+
+precis(m8.7stan)
+
+m8.8stan <- map2stan(
+  alist(
+    log_gdp ~ dnorm(mu, sigma),
+    mu <- a + bR*rugged + bA*cont_africa + bAR*rugged*cont_africa,
+    a ~ dnorm(0, 100),
+    bR ~ dnorm(0, 10),
+    bA ~ dnorm(0, 10),
+    bAR ~ dnorm(0, 10),
+    sigma ~ dexp(1)
+  ),
+data = dd.trim,
+iter = 1250, warmup = 250)
+
+precis(m8.8stan)
+
+m8.9stan <- map2stan(
+  alist(
+    log_gdp ~ dnorm(mu, sigma),
+    mu <- a + bR*rugged + bA*cont_africa + bAR*rugged*cont_africa,
+    a ~ dnorm(0, 100),
+    bR ~ dnorm(0, 10),
+    bA ~ dnorm(0, 10),
+    bAR ~ dnorm(0, 10),
+    sigma ~ dexp(1)
+  ),
+data = dd.trim,
+iter = 1500, warmup = 500)
+
+precis(m8.9stan)
+
+m8.10stan <- map2stan(
+  alist(
+    log_gdp ~ dnorm(mu, sigma),
+    mu <- a + bR*rugged + bA*cont_africa + bAR*rugged*cont_africa,
+    a ~ dnorm(0, 100),
+    bR ~ dnorm(0, 10),
+    bA ~ dnorm(0, 10),
+    bAR ~ dnorm(0, 10),
+    sigma ~ dexp(1)
+  ),
+data = dd.trim,
+iter = 2000, warmup = 1000)
+
+precis(m8.10stan)
+
+
+```
+
+
+In the case of the terrain problem, it seems like we can get away with only 100 warmup iterations.
+
+#Hard
+###Problem 1
+```{r}
+mp <- map2stan(
+  alist(
+    a ~ dnorm(0,1),
+    b ~ dcauchy(0, 1)
+  ),
+  data = list(y=1),
+  start= list(a=0, b = 0),
+  iter = 1e4, warmup = 100, WAIC = FALSE
+)
+
+precis(mp)
+plot(mp)
+```
+
+The variance of the samples for B is much higher, as a cauchy distribution has nonfinite variance. That leads to the cauchy distribution taking on much more extreme values compared to the normal distribution.
+
+###Problem 2
+```{r}
+#Load the data
+data("WaffleDivorce")
+d <- WaffleDivorce
+
+#Standardize the predictors
+d$MedianAgeMarriage_s <- (d$MedianAgeMarriage - mean(d$MedianAgeMarriage))/sd(d$MedianAgeMarriage)
+d$Marriage_s <- (d$Marriage - mean(d$Marriage))/sd(d$Marriage)
+
+
+dd <- d[,c("Location", "Loc", "MedianAgeMarriage_s", "Divorce", "Marriage_s")]
+
+#First model
+m5.1 <- map(
+  alist(
+    Divorce ~ dnorm(mu, sigma),
+    mu <- a + bA * MedianAgeMarriage_s,
+    a ~ dnorm(10, 10),
+    bA ~ dnorm(0, 1),
+    sigma ~ dunif(0, 10)
+  ),
+  data = dd
+)
+
+#First model with Stan
+m5.1stan <- map2stan(
+  alist(
+    Divorce ~ dnorm(mu, sigma),
+    mu <- a + bA * MedianAgeMarriage_s,
+    a ~ dnorm(10, 10),
+    bA ~ dnorm(0, 1),
+    sigma ~ dunif(0, 10)
+  ),
+  data = dd
+)
+
+m5.2stan <- map2stan(
+  alist(
+    Divorce ~ dnorm(mu, sigma),
+    mu <- a + bA * Marriage_s,
+    a ~ dnorm(10, 10),
+    bA ~ dnorm(0, 1),
+    sigma ~ dunif(0, 10)
+  ),
+  data = dd
+) 
+
+m5.3stan <- map2stan(
+  alist(
+    Divorce ~ dnorm(mu, sigma),
+    mu <- a + bA * Marriage_s + bR*MedianAgeMarriage_s,
+    a ~ dnorm(10, 10),
+    bA ~ dnorm(0, 1),
+    bR ~ dnorm(0, 1),
+    sigma ~ dunif(0, 10)
+  ),
+  data = dd
+) 
+```
+```{r}
+precis(m5.1stan)
+plot(m5.1stan)
+
+precis(m5.2stan)
+plot(m5.2stan)
+
+precis(m5.3stan)
+plot(m5.3stan)
+
+compare(m5.1stan, m5.2stan, m5.3stan)
+coeftab(m5.1stan, m5.2stan, m5.3stan)
+
+
+```
+
+Based on WAIC, we choose m5.1.  This uses only median marriage age.  It has a similar residual variance to the combined model, but uses fewer variables.
+
+###Problem 3
+```{r}
+N <- 100
+height <- rnorm(N, 10, 2)
+leg_prop <- runif(N, 0.4, 0.5)
+leg_left <- leg_prop * height + rnorm(N, 0, 0.02)
+leg_right <- leg_prop * height + rnorm(N, 0, 0.02)
+d <- data.frame(height, leg_left, leg_right)
+
+m5.8s <- map2stan(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a + bl*leg_left + br*leg_right,
+    a ~ dnorm(10, 100),
+    bl ~ dnorm(2, 10),
+    br ~ dnorm(2, 10),
+    sigma ~ dcauchy(0, 1)
+  ),
+  data = d, chains = 4,cores = 4,
+  start = list(a=10, bl=0, br = 0, sigma =1)
+)
+
+m5.8s2 <- map2stan(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a + bl*leg_left + br*leg_right,
+    a ~ dnorm(10, 100),
+    bl ~ dnorm(2, 10),
+    br ~ dnorm(2, 10) & T[0,],
+    sigma ~ dcauchy(0, 1)
+  ),
+  data = d, chains = 4, cores = 4,
+  start = list(a=10, bl=0, br = 0, sigma =1)
+)
+
+precis(m5.8s)
+precis(m5.8s2)
+compare(m5.8s, m5.8s2)
+
+```
+```{r}
+plot(m5.8s)
+plot(m5.8s2)
+```
+
+The posterior means have shifted such that bl has gone down from 2.09 to 0.19, while the weight on br has up to 1.91 from 0.02. Effectively, now the negative cases have shifted down from the right leg to the left leg.
+
+###Problem 4
+```{r}
+compare(m5.8s, m5.8s2)
+coeftab(m5.8s, m5.8s2)
+```
+
+Using WAIC, m5.8s2 provides a slightly better fit, while the standard error of the difference is is 1.5, so the difference is not statistically significant.  The model with the floor at 0 has fewer effective parameters (3.4 vs 3.8)
+
+###Problem 5
+```{r}
+island.index <- seq(from =  1, to = 10)
+island.pop <- sample(island.index, 10)
+island.frame <- data.frame(island.name, island.index, island.pop)
+
+num_weeks <- 1e5
+positions <- rep(0, num_weeks)
+current <- 10
+for (i in 1:num_weeks){
+  
+  #record current position
+  positions[i] <- current
+  
+  #flip coin to generate proposal
+  proposal <- current + sample(c(-1, 1), size = 1)
+  if (proposal < 1) proposal <- 10
+  if (proposal > 10) proposal <- 1
+  
+  prob_move <- (subset(island.frame, island.index == proposal, select = c("island.pop")) / subset(island.frame, island.index == current, select = c("island.pop")))$island.pop
+  current <- ifelse(runif(1) < prob_move, proposal, current)
+}
+
+
+plot(table(positions))
+```
+
+

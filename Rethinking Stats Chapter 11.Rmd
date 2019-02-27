@@ -1,0 +1,145 @@
+---
+title: "Rethinking Stats Chapter 11.Rmd"
+author: "Alex Bayers"
+date: "1/17/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Easy
+####Problem 1
+An ordered categorical variable is one where we have a natural ordering of the data, whereas an unordered categorical variable has no such ordering.  An example of an ordered categorical variable is how much someone likes ice cream on a scale of 1-10, while an unordered categorical variable would be a person's favorite ice cream.
+
+###Problem 2
+It uses a cumulative logistic link function.  Instead of measuring the odds of an individual category, it uses the odds of all categories less than and inclusive of that category.
+
+###Problem 3
+An overdispersed variable leads to more variance than we would expect based on our model.
+
+###Problem 4
+An overdispersed outcome might come from the count of salamanders in a forest.  An underdispersed outcome might come from the monk example, except where the monks stay late to always compute at least one manuscript.
+
+#Medium
+###Problem 1
+```{r}
+logit <- function(x) log( (x) / (1-x))
+value <- c(1, 2, 3, 4)
+count <- c(12, 36, 7, 41)
+my.frame <- data.frame(value = value, count = count)
+my.frame$proportion <- cumsum(my.frame$count)/96
+logit(my.frame$proportion)
+#The log odds are printed below, note that we can ignore the fourth case by the laws of total probability
+```
+
+###Problem 2
+```{r}
+plot( 1:4, my.frame$proportion , type="b" , xlab="response", ylim = c(0, 1), xaxt = "n")
+axis(side = 1, at = my.frame$value, labels = my.frame$value)
+for (i in 1:4){
+  lines(x=c(i,i), y = c(0, my.frame$proportion[i]), lwd = 3)
+  if(i == 1) {
+    lines(x=c(i+.05,i+.05), y = c(0, my.frame$proportion[i]), lwd = 3, col = rangi2)
+  }
+  else{
+    lines(x=c(i+.05,i+.05), y = c(my.frame$proportion[i-1], my.frame$proportion[i]), lwd = 3, col = rangi2)
+  }
+  
+}
+
+```
+
+#Hard
+###Problem 1
+```{r, results = "hide", cache = TRUE}
+library(rethinking)
+data("Hurricanes")
+d <- Hurricanes
+
+m11.1.stan <- map2stan(
+  alist(
+    deaths ~ dpois(lambda),
+    log(lambda) <- a + bf*femininity,
+    a ~ dnorm(0, 3),
+    bf ~ dnorm(0, 3)
+  ),
+  data = d,
+  iter = 3000,
+  warmup = 1000,
+  cores = 4,
+  chains = 4
+)
+
+m11.2.stan <- map2stan(
+  alist(
+    deaths ~ dpois(lambda),
+    log(lambda) <- a,
+    a ~ dnorm(0, 3)
+  ),
+  data = d,
+  iter = 3000,
+  warmup = 1000,
+  cores = 4,
+  chains = 4
+)
+
+compare(m11.1.stan, m11.2.stan)
+precis(m11.1.stan)
+precis(m11.2.stan)
+```
+
+The model with feminity fits substantially better, picking up all the weight based on the WAIC loadings.  We proceed to do a graphical check.  There seem to be substantial outliers in the model.
+
+```{r}
+postcheck(m11.1.stan)
+plot(deaths ~ log(femininity), data = d)
+```
+
+###Problem 2
+```{r, results = "hide", cache = TRUE}
+m11.3.stan <- map2stan(
+  alist(
+    deaths ~ dgampois(lambda, scale),
+    log(lambda) <- a + bf*femininity,
+    a ~ dnorm(0, 100),
+    bf ~ dnorm(0, 1),
+    scale ~ dcauchy(0, 2)
+  ),
+  data = d,
+  constraints = list(scale="lower=0"),
+  iter = 3000,
+  warmup = 1000,
+  cores = 4,
+  chains = 4
+)
+
+```
+
+```{r}
+precis(m11.3.stan)
+postcheck(m11.3.stan)
+```
+The negative binomi model reduces the impact of the feminity.  This increases the variance of the error, which reduces the influence we can place on the bf coefficient.
+
+###Problem 3
+```{r}
+m11.4.stan <- map2stan(
+  alist(
+    deaths ~ dpois(lambda),
+    log(lambda) <- a + bf*femininity + bd*damage_norm + bm*min_pressure,
+    a ~ dnorm(0, 3),
+    bf ~ dnorm(0, 3),
+    bd ~ dnorm(0, 3),
+    bm ~ dnorm(0, 3)
+  ),
+  data = d,
+  iter = 3000,
+  warmup = 1000,
+  cores = 4,
+  chains = 4
+)
+precis(m11.4.stan)
+```
+

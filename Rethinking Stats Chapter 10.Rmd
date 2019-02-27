@@ -1,0 +1,277 @@
+---
+title: "Rethinking Stats Chapter 10.Rmd"
+author: "Alex Bayers"
+date: "1/15/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Easy
+###Problem 1
+```{r}
+library(rethinking)
+log(.35/.65)
+```
+The log odds are -.619.
+
+###Problem 2
+```{r}
+logistic(3.2)
+```
+
+P = 96.08% if the log odds are 3.2.
+
+###Problem 3
+```{r}
+exp(1.7)
+```
+
+A 1 unit change in x changes the odds by 4.474 times.
+
+###Problem 4
+We use offsets to handle varying time or spatial intervals.  For example, one car dealership may report its sales on a weekly basis, while another may apply it on a daily basis - we can add an offset into the regression equation to handle this.
+
+#Medium
+###Problem 1
+When we compute the aggregated form of the binomial model, we need to account for the number of different arrangements in which this combination could come about.  We don't need to account for this in a disaggregated binomial model.  As a result, the two likelihoods will be different.
+
+###Exercise 2
+For an increase of 1, the expected value goes up by 1.7.
+
+###Exercise 3
+It makes sense because the value is constrained between 0 and 1, as we expect from a probability.
+
+###Exercise 4
+The log link makes sure the value is always positive, as we expect from a count variable.
+
+###Exercise 6
+The binomial distribution is the maximum entropy distribution when each trail must result in one of two outcomes and the expected value is constant.  The poisson distribution is the maximum entropy distribution when we have a small number of discrete events with a constant likelihood. 
+
+#Hard
+###Problem 1
+```{r, results = "hide", cache=TRUE}
+data("chimpanzees")
+d <- chimpanzees
+d$recipient <- NULL
+
+m10.4 <- map(
+  alist(
+    pulled_left ~ dbinom(1, p),
+    logit(p) <- a[actor] + (bp + bpC)*condition*prosoc_left,
+    a[actor] <- dnorm(0, 10),
+    bp ~ dnorm(0, 10),
+    bpC ~ dnorm(0, 10)
+  ),
+  data = d
+)
+
+m10.4.stan <- map2stan(m10.4, chains = 2, iter=2500, warmup = 500, cores = 2)
+
+```
+
+```{r}
+precis(m10.4, depth = 2)
+precis(m10.4.stan, depth = 2)
+pairs(m10.4)
+pairs(m10.4.stan)
+```
+
+A number of the variables seem much more skewed in the MCMC, rather than the quadratic approximation - for example, parameter a[2].
+
+###Problem 2
+```{r}
+m10.2 <- map2stan(
+  alist(
+    pulled_left ~ dbinom(1, p),
+    logit(p) <- a + bp*prosoc_left,
+    a ~ dnorm(0, 10),
+    bp ~ dnorm(0, 10)
+  ),
+  data = d,
+  chains = 2, iter=2500, warmup = 500, cores = 2
+)
+
+m10.3 <- map2stan(
+  alist(
+    pulled_left ~ dbinom(1, p),
+    logit(p) <- a + (bpC + bp)*prosoc_left,
+    a ~ dnorm(0, 10),
+    bp ~ dnorm(0, 10),
+    bpC ~ dnorm(0, 10)
+  ),
+  data = d,
+  chains = 2, iter=2500, warmup = 500, cores = 2
+)
+
+compare(m10.2, m10.3, m10.4.stan)
+```
+The varying intercepts model fits much better than the single intercepts model - we get a WAIC of 537.8 versus 680.5 for the other models, and a weight of 1 on that model.
+
+###Problem 3
+#####A
+```{r}
+#Create the data
+library(MASS)
+data(eagles)
+d <- eagles
+
+#Rearrange the data
+d$adult <- 0
+d$largepirate <- 0
+d$largevictim <- 0
+d$adult[d$A=="A"] <-  1
+d$largepirate[d$P=="L"] <-  1
+d$largevictim[d$V=="L"] <- 1
+print(d)
+
+
+m10.5 <- map(
+  alist(
+    y ~ dbinom(n, p),
+    logit(p) ~ a + bp*largepirate + ba*adult + bv*largevictim,
+    a ~ dnorm(0, 10),
+    bp ~ dnorm(0, 5),
+    ba ~ dnorm(0, 5),
+    bv ~ dnorm(0, 5)
+  ), data = d
+)
+
+precis(m10.5)
+
+```
+
+```{r, results = "hide", cache=TRUE}
+#Create the stan model
+m10.5.stan <- map2stan(
+  m10.5,
+  data = d,
+  iter = 3000,
+  warmup = 1000,
+  cores = 4,
+  chains = 4
+)
+
+precis(m10.5.stan)
+
+```
+
+The estimates for the MAP seem to vary reasonalby from the stan estimates.  In particular, bp is 4.61 in the stan model, versus 4.24 in the MAP estimate, and bv is -5.02 versus -4.59 in the MAP estimate.  Looking at the pairs plots (below), bp and bv both look skewed.
+
+```{r}
+pairs(m10.5.stan)
+```
+
+#####B
+```{r}
+print(exp(4.61))
+print(exp(1.13))
+print(exp(-5.02))
+```
+
+The odds of a successful attack go up 100x if the pirate is large.  The odds of a successful attack go down 150x if the victim is large.  The odds of a successful attack go up 3x if the pirate is an adult.
+
+```{r}
+postcheck(m10.5.stan)
+```
+
+#####C
+```{r}
+m10.6.stan <- map2stan(
+  alist(
+    y ~ dbinom(n, p),
+    logit(p) ~ a + bp*largepirate + ba*adult + bv*largevictim + babp*largepirate*adult,
+    a ~ dnorm(0, 10),
+    bp ~ dnorm(0, 5),
+    ba ~ dnorm(0, 5),
+    bv ~ dnorm(0, 5),
+    babp ~ dnorm(0, 5)
+  ), data = d
+)
+
+precis(m10.6.stan)
+compare(m10.5.stan, m10.6.stan)
+```
+
+The interaction fit is substantially better.  Looking at the weights, there is a 92% weight on the interaction model, and an 8% weight on the no interaction model.
+
+###Problem 4
+#####A
+```{r}
+data("salamanders")
+d <- salamanders
+
+m10.7 <- map(
+  alist(
+    SALAMAN ~ dpois(lambda),
+    log(lambda) <- a + bp*PCTCOVER,
+    a ~ dnorm(0, 5),
+    bp ~ dnorm(0, 1)
+  ),
+  data = d
+)
+
+precis(m10.7)
+```
+
+```{r}
+m10.7.stan <- map2stan(
+  m10.7,
+  data = d,
+  iter = 3000,
+  warmup = 1000,
+  cores = 4,
+  chains = 4
+)
+
+precis(m10.7.stan)
+```
+
+The constant coming from the HMC model is different than the constant coming from the MAP model (-1.56 vs -1.45).
+
+```{r}
+postcheck(m10.7.stan)
+
+```
+The variance of the counts looks too high - we ee too many examples that predict too high, and quite a few cases with 0.
+
+```{r}
+seq <- seq(from = 0, to = 100, by = 1)
+d.linked <- data.frame(PCTCOVER = seq)
+linked.data <- link(m10.7.stan, data = d.linked)
+pctcover.mean <- apply(linked.data, 2, mean)
+pctcover.PI <- apply(linked.data, 2, PI)
+plot(SALAMAN ~ PCTCOVER, data = d, col = rangi2, pch = 19)
+lines(seq, pctcover.mean)
+shade(pctcover.PI, seq)
+```
+When we plot the predictions, we see the prediction interval is too small and does not capture enough of the datapoints.
+
+
+#####B
+```{r}
+m10.8.stan <- map2stan(
+  alist(
+    SALAMAN ~ dpois(lambda),
+    log(lambda) <- a + bp*PCTCOVER + bf*FORESTAGE,
+    a ~ dnorm(0, 5),
+    bp ~ dnorm(0, 1),
+    bf ~ dnorm(0, 5)
+  ),
+  data = d,
+  iter = 3000,
+  warmup = 1000,
+  cores = 4,
+  chains = 4
+)
+
+precis(m10.8.stan)
+```
+
+```{r}
+compare(m10.7.stan, m10.8.stan)
+```
+
+We put higher weight on the smaller model - Forestage does not seem to help when we add it to the model.

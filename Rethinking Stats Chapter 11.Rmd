@@ -25,6 +25,7 @@ An overdispersed outcome might come from the count of salamanders in a forest.  
 #Medium
 ###Problem 1
 ```{r}
+library(rethinking)
 logit <- function(x) log( (x) / (1-x))
 value <- c(1, 2, 3, 4)
 count <- c(12, 36, 7, 41)
@@ -112,7 +113,8 @@ m11.3.stan <- map2stan(
   iter = 3000,
   warmup = 1000,
   cores = 4,
-  chains = 4
+  chains = 4,
+  control=list(adapt_delta=.99)
 )
 
 ```
@@ -125,14 +127,36 @@ The negative binomi model reduces the impact of the feminity.  This increases th
 
 ###Problem 3
 ```{r}
+d$std_damage <- (d$damage_norm - mean(d$damage_norm))/sd(d$damage_norm)
 m11.4.stan <- map2stan(
   alist(
-    deaths ~ dpois(lambda),
-    log(lambda) <- a + bf*femininity + bd*damage_norm + bm*min_pressure,
+    deaths ~ dgampois(lambda, scale),
+    log(lambda) <- a + bf*femininity + bd*std_damage,
     a ~ dnorm(0, 3),
     bf ~ dnorm(0, 3),
-    bd ~ dnorm(0, 3),
-    bm ~ dnorm(0, 3)
+    bd ~ dnorm(0, 100),
+    scale ~ dcauchy(0, 2)
+  ),
+  data = d,
+  iter = 3000,
+  warmup = 1000,
+  cores = 4,
+  chains = 4,
+  control=list(adapt_delta=.99)
+)
+precis(m11.4.stan)
+```
+```{r}
+d$std_pressure <- (d$min_pressure - mean(d$min_pressure))/sd(d$min_pressure)
+m11.5.stan <- map2stan(
+  alist(
+    deaths ~ dgampois(lambda, scale),
+    log(lambda) <- a + bf*femininity + bd*std_damage + bm*std_pressure,
+    a ~ dnorm(0, 3),
+    bf ~ dnorm(0, 3),
+    bd ~ dnorm(0, 10),
+    bm ~ dnorm(0, 10),
+    scale ~ dcauchy(0, 2)
   ),
   data = d,
   iter = 3000,
@@ -140,6 +164,157 @@ m11.4.stan <- map2stan(
   cores = 4,
   chains = 4
 )
-precis(m11.4.stan)
+precis(m11.5.stan)
+
+```
+```{r}
+m11.6.stan <- map2stan(
+  alist(
+    deaths ~ dgampois(lambda, scale),
+    log(lambda) <- a + bf*femininity + bm*std_pressure + bdm*femininity*std_damage,
+    a ~ dnorm(0, 3),
+    bf ~ dnorm(0, 3),
+    bm ~ dnorm(0, 10),
+    bdm ~ dnorm(0, 10),
+    scale ~ dcauchy(0, 2)
+  ),
+  data = d,
+  iter = 3000,
+  warmup = 1000,
+  cores = 4,
+  chains = 4
+)
+precis(m11.6.stan)
+
+
 ```
 
+
+```{r}
+compare(m11.4.stan, m11.5.stan, m11.6.stan, func = DIC)
+```
+
+Comparing all the models, it seems that a model fit using feminity, storm damage, and min_pressure best fits, with interaction terms all having higher WAIC.
+
+###Problem 4
+```{r}
+d$log_damage <- log(d$damage_norm)
+m11.7.stan <- map2stan(
+  alist(
+    deaths ~ dgampois(lambda, scale),
+    log(lambda) <- a + bf*femininity + bd*log_damage + bm*std_pressure,
+    a ~ dnorm(0, 3),
+    bf ~ dnorm(0, 3),
+    bd ~ dnorm(0, 10),
+    bm ~ dnorm(0, 10),
+    scale ~ dcauchy(0, 2)
+  ),
+  data = d,
+  iter = 3000,
+  warmup = 1000,
+  cores = 4,
+  chains = 4
+)
+precis(m11.7.stan)
+```
+
+Model 11.7 fits much better.  Also feminity drops out as a significant predictor.
+
+###Problem 5
+```{r}
+data(Trolley)
+d <- Trolley
+m11.8 <- map(
+  alist(
+    response ~ dordlogit(phi, cutpoints),
+    phi <- bA*action + bI*intention + bC*contact + bG*male*contact,
+    bG ~ dnorm(0, 10),
+    bA ~ dnorm(0, 10),
+    bI ~ dnorm(0, 10),
+    bC ~ dnorm(0, 10),
+    cutpoints <- dnorm(0, 10)
+  ),
+  data = d,
+  start = list(cutpoints=c(-2, -1, 0, 1, 2, 2.5))
+)
+
+precis(m11.8, depth = 2)
+```
+```{r}
+post <- extract.samples(m11.8.stan)
+plot(1, 1, type ="n", xlab = "gender", ylab = "probability", xlim = c(0,1), ylim = c(0,1), xaxp=c(0, 1, 1), yaxp = c(0,1, 2))
+male <- 0:1
+kA <- 0
+kI <- 0
+kC <- 1
+for (s in 1:100){
+  p <- post$cutpoints[s,]
+  ak <- as.numeric(p[1:6])
+  phi <- post$bG[s]*male*kC +post$bA[s]*kA + post$bI[s]*kI + post$bC[s]*kC
+  pk <- pordlogit(1:6, a=ak, phi = phi)
+  for (i in 1:6){
+    lines(male, pk[,i], col=col.alpha(rangi2, 0.1))
+  }
+}
+```
+
+So men do, in fact, find contact more permissible.
+
+
+###Problem 6
+```{r}
+data(Fish)
+d <- Fish
+d$log_hours <- log(d$hours)
+m11.9 <- map(
+  alist(
+    fish_caught ~ dzipois(p, lambda),
+    logit(p) ~ p_fish + livebait*p_bait + camper*p_camper,
+    log(lambda) ~ log_hours + fish_rate + camper*camper_rate + livebait*livebait_rate + child*child_rate + persons*adult_rate,
+    p_fish ~ dnorm(0,10),
+    p_bait ~ dnorm(0, 10),
+    p_camper ~ dnorm(0, 10),
+    fish_rate ~ dnorm(0, 10),
+    camper_rate ~ dnorm(0, 10),
+    livebait_rate ~ dnorm(0, 10),
+    child_rate ~ dnorm(0, 10),
+    adult_rate ~ dnorm(0, 10)
+  ),
+  data = d
+)
+
+
+precis(m11.9)
+```
+
+
+```{r}
+#Remove predictors for logistic function
+m11.10 <- map(
+  alist(
+    fish_caught ~ dzipois(p, lambda),
+    logit(p) ~ p_fish,
+    log(lambda) ~ log_hours + fish_rate + camper*camper_rate + livebait*livebait_rate + child*child_rate + persons*adult_rate,
+    p_fish ~ dnorm(0,10),
+    fish_rate ~ dnorm(0, 10),
+    camper_rate ~ dnorm(0, 10),
+    livebait_rate ~ dnorm(0, 10),
+    child_rate ~ dnorm(0, 10),
+    adult_rate ~ dnorm(0, 10)
+  ),
+  data = d
+)
+
+
+precis(m11.10)
+```
+
+```{r}
+compare(m11.9, m11.10, sort = "DIC", func = DIC)
+```
+So we see the predictors have minimal effect and can probably be removed.  We therefore proceed using model 11.10.
+
+```{r}
+logistic(-1.34)
+exp(-3.61)
+```

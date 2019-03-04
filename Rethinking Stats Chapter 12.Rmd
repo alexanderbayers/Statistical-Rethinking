@@ -1,0 +1,26 @@
+---
+title: "Rethinking Stats Chapter 12.Rmd"
+author: "Alex Bayers"
+date: "04/03/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Easy
+
+###Problem 1
+
+1.  Prior a) will produce more shrinkage, as the lower standard deviation forces each a(tank) closer to 0.
+
+###Problem 2
+$$
+\\y_i \sim  Binomial(1, p_i)
+\\logit(p_i) \sim \alpha_{GROUP[i]} \> + \> \beta x_i
+\\\alpha_{GROUP} \sim Normal(\alpha, \>\sigma)
+\\\alpha \sim Normal(0, 10)
+\\\beta \sim Normal(0, 1)
+\\\sigma \sim HalfCauchy(0, 1)
+$$

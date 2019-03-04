@@ -9,13 +9,13 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-#Easy
+# Easy
 
-###Problem 1
+### Problem 1
 
-1.  Prior a) will produce more shrinkage, as the lower standard deviation forces each a(tank) closer to 0.
+Prior a) will produce more shrinkage, as the lower standard deviation forces each a(tank) closer to 0.
 
-###Problem 2
+### Problem 2
 $$
 \\y_i \sim  Binomial(1, p_i)
 \\logit(p_i) \sim \alpha_{GROUP[i]} \> + \> \beta x_i

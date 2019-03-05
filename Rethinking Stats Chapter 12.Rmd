@@ -62,4 +62,27 @@ m12.1 <- map2stan(
   ),
   data = d
 )
+
+precis(m12.1, depth = 2)
+```
+
+```{r}
+m12.2 <- map2stan(
+  alist(
+    surv ~ dbinom(density, p),
+    logit(p) <- a_tank[tank],
+    a_tank[tank]  ~ dnorm(a, sigma),
+    a ~ dnorm(0, 1),
+    sigma ~ dcauchy(0, 1)
+  ),
+  data = d,
+  iter = 4000,
+  chains = 4
+)
+
+precis(m12.2, depth = 2)
+```
+
+```{r}
+compare(m12.1, m12.2)
 ```

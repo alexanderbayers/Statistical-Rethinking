@@ -24,3 +24,42 @@ $$
 \\\beta \sim Normal(0, 1)
 \\\sigma \sim HalfCauchy(0, 1)
 $$
+
+### Problem 3
+$$
+\\y_i \sim  Normal(\mu_i, \sigma)
+\\\mu_i \sim \alpha_{GROUP[i]} \> + \> \beta x_i
+\\\alpha_{GROUP} \sim Normal(\alpha, \>\epsilon)
+\\\alpha \sim Normal(0, 10)
+\\\beta \sim Normal(0, 1)
+\\\sigma \sim HalfCauchy(0, 2)
+\\\epsilon \sim HalfCauchy(0, 2)
+$$
+
+### Problem 4
+$$
+\\T_i \sim Poisson(\mu_i)
+\\log(u_i) \sim \alpha + \alpha_{SOCIETY_{[i]}} + \beta_P * log \> P_i
+\\\alpha \sim Normal(0, 10)
+\\\beta_P \sim Normal(0, 1)
+\\\alpha_{SOCIETY} \sim Normal(0, \sigma_{SOCIETY})
+\\\sigma_{SOCIETY} \sim HalfCauchy(0,1)
+$$
+
+# Medium
+### Problem 1
+```{r}
+library(rethinking)
+data(reedfrogs)
+d <- reedfrogs
+d$tank <- 1:nrow(d)
+
+m12.1 <- map2stan(
+  alist(
+    surv ~ dbinom(density, p),
+    logit(p) <- a_tank[tank],
+    a_tank[tank]  ~ dnorm(0, 5)
+  ),
+  data = d
+)
+```

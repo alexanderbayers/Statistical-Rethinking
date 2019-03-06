@@ -1,5 +1,5 @@
 ---
-title: "Rethinking_Stats_Chapter_12.Rmd"
+title: "Rethinking Stats Chapter 12.Rmd"
 author: "Alex Bayers"
 date: "04/03/2019"
 output: html_document
@@ -48,7 +48,7 @@ $$
 
 # Medium
 ### Problem 1
-```{r, warning=FALSE, error FALSE, message=FALSE}
+```{r}
 library(rethinking)
 data(reedfrogs)
 d <- reedfrogs
@@ -66,9 +66,7 @@ m12.1 <- map2stan(
 precis(m12.1, depth = 2)
 ```
 
-test
-
-```{r, warning=FALSE}
+```{r}
 m12.2 <- map2stan(
   alist(
     surv ~ dbinom(density, p),
@@ -85,11 +83,11 @@ m12.2 <- map2stan(
 precis(m12.2, depth = 2)
 ```
 
-```{r, warning=FALSE}
+```{r}
 compare(m12.1, m12.2)
 ```
 
-```{r, warning=FALSE}
+```{r}
 #extract STAN samples
 post <- extract.samples(m12.2)
 
@@ -114,7 +112,7 @@ text(32+8, 0, "large tanks")
 ```
 
 
-```{r, warning=FALSE}
+```{r}
 d$predbool <- ifelse(d$pred == "pred", 1, 0)
 m12.3 <- map2stan(
   alist(
@@ -134,7 +132,7 @@ precis(m12.3, depth = 2)
 
 ```
 
-```{r, warning=FALSE}
+```{r}
 #Now ordered logit
 d$large = ifelse(d$size=="large", 1, 0)
 d$medium = ifelse(d$size=="medium", 1, 0)
@@ -160,7 +158,7 @@ precis(m12.4, depth = 2)
 ```
 
 
-```{r, warning=FALSE}
+```{r}
 #Now ordered logit
 d$large = ifelse(d$size=="large", 1, 0)
 d$medium = ifelse(d$size=="medium", 1, 0)
@@ -213,9 +211,4 @@ compare(m12.1, m12.2, m12.3, m12.4, m12.5, m12.6)
 coeftab(m12.3, m12.5, m12.6, se = TRUE)
 ```
 
-
-Looking at the model, the addition of predation substantially shrinks the variance (sigma) of a(t).  Effectively, our parameters were overdispersed because of the omitted variable bias.
-
-
-###Problem 2
-Interestingly, despite quite a wide standard error bar on the coefficients in models 12.5 and 12.6, the difference in WAIC is not very large between models 12.3, 12.5, and 12.6.  Looking at the effective number of parameters, there are scarcely any more free parameters in m12.5 versus m12.6 - (28.7 and 28.8 versus 28.6).  I think there are fewer effective parameters because of the large number of varying coefficients - by adding additional shrinkage from the new variables this can easily offset the additional variables.
+So we get an equal loading on the predation and 

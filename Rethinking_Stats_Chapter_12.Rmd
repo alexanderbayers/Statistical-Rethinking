@@ -66,8 +66,6 @@ m12.1 <- map2stan(
 precis(m12.1, depth = 2)
 ```
 
-test
-
 ```{r, warning=FALSE}
 m12.2 <- map2stan(
   alist(
@@ -219,3 +217,26 @@ Looking at the model, the addition of predation substantially shrinks the varian
 
 ###Problem 2
 Interestingly, despite quite a wide standard error bar on the coefficients in models 12.5 and 12.6, the difference in WAIC is not very large between models 12.3, 12.5, and 12.6.  Looking at the effective number of parameters, there are scarcely any more free parameters in m12.5 versus m12.6 - (28.7 and 28.8 versus 28.6).  I think there are fewer effective parameters because of the large number of varying coefficients - by adding additional shrinkage from the new variables this can easily offset the additional variables.
+
+
+###Problem 3
+```{r, cache = TRUE}
+m12.7 <- map2stan(
+  alist(
+    surv ~ dbinom(density, p),
+    logit(p) <- a_tank[tank],
+    a_tank[tank]  ~ dcauchy(a, sigma),
+    a ~ dnorm(0, 1),
+    sigma ~ dcauchy(0, 1)
+  ),
+  data = d,
+  iter = 6000,
+  chains = 4,
+  control = list(max_treedepth=15)
+)
+
+precis(m12.7, depth = 2)
+
+```
+
+

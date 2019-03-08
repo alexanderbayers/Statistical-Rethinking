@@ -239,15 +239,14 @@ precis(m12.7, depth = 2)
 
 ```
 
-```
 
  The outcomes have substantially higher dispersion and less shrinkage.  This reflects two facts - one, in logistic regression, large values are both very close to zero; two, that 
 
 
 ```{r}
-post.new <- extract.samples(m12.2)
+post.new <- extract.samples(m12.7)
 
-d$propsurv.new <- logistic(apply(post$a_tank, 2, median))
+d$propsurv.new <- logistic(apply(post.new$a_tank, 2, median))
 
 #display normal proportions
 plot(d$propsurv.est, ylim = c(0, 1), pch = 16, xaxt = "n", xlab = "tank", ylab= "proportion survival", col = rangi2)
@@ -269,5 +268,61 @@ text(32+8, 0, "large tanks")
 ```
 
 
+###Problem 4
+```{r}
+data("chimpanzees")
+d <- chimpanzees
+d$block_id <- d$block
+
+m12.8 <- map2stan(
+  alist(
+    pulled_left <- dbinom(1, p),
+    logit(p) <- a_actor[actor] + a_block[block_id] + (bp+ bpC*condition)*prosoc_left,
+    a_actor[actor] ~ dnorm(alpha, sigma_actor),
+    a_block[block_id] ~ dnorm(gamma, sigma_block),
+    c(alpha, gamma, bp, bpC) ~ dnorm(0, 10),
+    c(sigma_actor, sigma_block) ~ dcauchy(0, 1)
+  ),
+  data = d,
+  warmup = 1000,
+  iter = 5000,
+  chains = 4,
+  cores = 4
+)
+
+precis(m12.8, depth = 2)
+
+```
+
+The chains are estimated quote poorly; in particular, with low n_eff, because of the high correlation between the two different grand mean parameters.
+
+```{r}
+plot(precis(m12.8, depth = 2))
+plot(m12.8)
+```
+
+#Hard
+###Problem 1
+```{r}
+data("bangladesh")
+d <- bangladesh
+
+d$district_id <- as.integer(as.factor(d$district))
+m12.9 <- map2stan(
+  alist(
+    use.contraception <- dbinom(1, p),
+    logit(p) <- a_actor[actor] + a_block[block_id] + (bp+ bpC*condition)*prosoc_left,
+    a_actor[actor] ~ dnorm(alpha, sigma_actor),
+    a_block[block_id] ~ dnorm(gamma, sigma_block),
+    c(alpha, gamma, bp, bpC) ~ dnorm(0, 10),
+    c(sigma_actor, sigma_block) ~ dcauchy(0, 1)
+  ),
+  data = d,
+  warmup = 1000,
+  iter = 5000,
+  chains = 4,
+  cores = 4
+)
 
 
+```

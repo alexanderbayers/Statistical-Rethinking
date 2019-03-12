@@ -306,16 +306,15 @@ plot(m12.8)
 ```{r}
 data("bangladesh")
 d <- bangladesh
-
 d$district_id <- as.integer(as.factor(d$district))
+
 m12.9 <- map2stan(
   alist(
     use.contraception <- dbinom(1, p),
-    logit(p) <- a_actor[actor] + a_block[block_id] + (bp+ bpC*condition)*prosoc_left,
-    a_actor[actor] ~ dnorm(alpha, sigma_actor),
-    a_block[block_id] ~ dnorm(gamma, sigma_block),
-    c(alpha, gamma, bp, bpC) ~ dnorm(0, 10),
-    c(sigma_actor, sigma_block) ~ dcauchy(0, 1)
+    logit(p) <- a_district[district_id],
+    a_district[district_id] ~ dnorm(alpha, sigma_district),
+    alpha ~ dnorm(0, 10),
+    sigma_district ~ dcauchy(0, 1)
   ),
   data = d,
   warmup = 1000,
@@ -324,5 +323,112 @@ m12.9 <- map2stan(
   cores = 4
 )
 
+precis(m12.9, depth = 2)
+```
 
+```{r}
+m12.10 <- map2stan(
+  alist(
+    use.contraception <- dbinom(1, p),
+    logit(p) <- a_district[district_id],
+    a_district[district_id] ~ dnorm(0, 10)
+  ),
+  data = d,
+  warmup = 1000,
+  iter = 5000,
+  chains = 4,
+  cores = 4
+)
+
+precis(m12.10, depth = 2)
+
+
+post.9 <- extract.samples(m12.9)
+post.10 <- extract.samples(m12.10)
+
+
+plot(logistic(apply(post.9$a_district, 2, median)), col=rangi2, pch =16, ylim = c(0, 1), ylab="")
+points(logistic(apply(post.10$a_district, 2, median)))
+
+```
+There's substantial shrinkage, particularly in the cases near 0 and near 1.
+
+###Problem 2
+```{r}
+data(Trolley)
+d <- Trolley
+d$factor_id <- as.integer(as.factor(d$id))
+
+m12.11 <- map2stan(
+  alist(
+    response ~ dordlogit( phi , cutpoints ),
+    phi <- bA*action + bC*contact + bI*intention + intercept[factor_id],
+    cutpoints ~ dnorm(0,10),
+    c(bA, bC, bI) ~ dnorm(0, 10),
+    intercept[factor_id] ~ dnorm(0, sigma_intercept),
+    sigma_intercept ~ dcauchy(0, 1)
+  ),
+  data=d ,
+  start=list(cutpoints=c(-2,-1,0,1,2,2.5)),
+  chains = 2,
+  cores = 2
+)
+
+precis(m12.11, depth = 2)
+```
+
+    #phi <- bA*Action + bI*Intention + bC*Contact + a_individual[factor_id] + intercept,
+    #a_individual[factor_id] ~ dnorm(0, sigma),
+    #c(bA, bI, bC, intercept) ~ dnorm(0, 10),
+    #sigma ~ dcauchy(0, 1),
+    
+```{r}
+m12.12 <- map2stan(
+  alist(
+    response ~ dordlogit( phi , cutpoints ),
+    phi <- bA*action + bC*contact + bI*intention,
+    cutpoints ~ dnorm(0,10),
+    c(bA, bC, bI) ~ dnorm(0, 10)
+  ),
+  data=d ,
+  start=list(cutpoints=c(-2,-1,0,1,2,2.5)),
+  chains = 2,
+  cores = 2
+)
+
+precis(m12.12, depth = 2)
+```
+```{r}
+compare(m12.11, m12.12)
+
+```
+
+The varying intercept model fits much better and has a much lowre WAIC, despite the higher degrees of freedom.
+
+###Problem 3
+```{r}
+d$story_id <- as.integer(as.factor(d$story))
+
+m12.13 <- map2stan(
+  alist(
+    response ~ dordlogit( phi , cutpoints ),
+    phi <- bA*action + bC*contact + bI*intention + a_individual[factor_id] + a_story[story_id],
+    cutpoints ~ dnorm(0,10),
+    c(bA, bC, bI) ~ dnorm(0, 10),
+    a_individual[factor_id] ~ dnorm(0, sigma_individual),
+    a_story[story_id] ~ dnorm(0, sigma_story),
+    sigma_individual ~ dcauchy(0, 1),
+    sigma_story ~ dcauchy(0, 1)
+  ),
+  data=d ,
+  start=list(cutpoints=c(-2,-1,0,1,2,2.5)),
+  chains = 2,
+  cores = 2
+)
+
+precis(m12.13, depth = 2)
+```
+
+```{r}
+compare(m12.11, m12.12, m12.13)
 ```

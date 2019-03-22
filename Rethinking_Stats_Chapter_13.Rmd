@@ -1,7 +1,7 @@
 ---
-title: "Rethinking_Stats_Chapter_13.rmd"
+title: "Rethinking_Stats_Chapter_13.Rmd"
 author: "Alex Bayers"
-date: "3/19/2019"
+date: "13/03/2019"
 output: html_document
 ---
 
@@ -9,4 +9,52 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+## Easy
 
+### Problem 1
+$$
+\\y_i \sim  Normal(\mu_i, \sigma)
+\\\mu_i \sim \alpha_{GROUP[i]} \> + \> \beta_{GROUP[i]} x_i
+\\\begin{equation*}
+\left[
+  \begin{array}{ccc}
+  \alpha_{group} \\
+  \beta_{group}\\
+  \end{array} \right]
+\sim MVNormal \bigg(
+  \left[
+    \begin{array}{ccc}
+    \alpha \\
+    \beta \\
+    \end{array} \right],
+  \textbf{S} \bigg)
+\\
+\textbf{S} =
+  \left[
+    \begin{array}{ccc}
+    \sigma_a & 0 \\
+    0 & \sigma_b\\
+    \end{array}
+    \right]
+\textbf{R}
+\left[
+  \begin{array}{ccc}
+  \sigma_a & 0 \\
+  0 & \sigma_b\\
+  \end{array}
+  \right]
+\\\alpha \sim Normal(0, 10)
+\\\beta \sim Normal(0, 1)
+\\(\sigma_a, \sigma_b) \sim HalfCauchy(0, 2)
+\\\textbf{R} \sim LKJcorr(2)
+\end{equation*}
+$$
+
+
+###Problem 2
+A busy restaurant may be even busier at dinner than it is at lunch.  In this case, the dinner indicator variable may positively covary with a higher lunch intercept.
+
+###Problem 3
+The varying slopes model can have fewer effective parameters when the regularization helps shrink the parameter space.
+
+##Medium

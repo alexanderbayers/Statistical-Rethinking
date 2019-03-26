@@ -443,28 +443,92 @@ m13.1h <- map2stan(
   data=d,
   warmup=1000, iter=5000 , chains=1, cores = 1)
 
-precis(m13.1h, depth = 2)
+precis(m13.1h, pars = c("a", "bu", "a_district", "bu_district"), depth = 2)
 ```
 
 ```{r}
-data("bangladesh")
-d <- bangladesh
-d$district_id <- as.integer(as.factor(d$district))
+post <- extract.samples(m13.1h,)
+a2 <- apply(post$a_district, 2, mean)
+b2 <- apply(post$bu_district, 2, mean)
+a1 <- mean(post$a)
+b1 <- mean(post$bu)
+plot(a2, b2, xlab = "intercept", ylab = "slope")
+```
 
-m12.9 <- map2stan(
+From the plot, we can see that slope and intercept are negatively correlated.  This implies that if a district has a low base rate of using contraception, being urban will have a greater increase on the likelihood of the use of contraception.  As we might expect, the base rate of contraception is much higher in urban areas than in rural areas.
+
+```{r}
+plot(x=rep(0, length(a2)), y=logistic(a1 + a2 + (b1+b2)*0), col = rangi2, xlim = c(0, 1), xlab = "Rural vs Urban", ylab = "P(Contraception)")
+points(x=0, y = mean(logistic(a1 + a2 + (b1+b2)*0)), col = "red")
+points(x=rep(1, length(a2)), y = logistic(a1 + a2 + (b1+b2)*1))
+points(x=1, y = mean(logistic(a1 + a2 + (b1+b2)*1)), col = "red")
+
+
+dens(post$Rho[,1, 2])
+```
+
+###Problem 2
+```{r}
+data("Oxboys")
+d <- Oxboys
+
+m13.2h <- map2stan(
   alist(
-    use.contraception <- dbinom(1, p),
-    logit(p) <- a_district[district_id],
-    a_district[district_id] ~ dnorm(alpha, sigma_district),
-    alpha ~ dnorm(0, 10),
-    sigma_district ~ dcauchy(0, 1)
-  ),
-  data = d,
-  warmup = 1000,
-  iter = 5000,
-  chains = 4,
-  cores = 4
-)
+    height <- dnorm(mu, sigma),
+    
+    #Model block
+    mu <- Alpha + Beta*age,
+    Alpha <- a + a_subject[Subject],
+    Beta <- b + b_subject[Subject],
+    
+    # adaptive priors
+    c(a_subject,b_subject)[Subject] ~ dmvnormNC(sigma_parameter, Rho),
 
-precis(m12.9, depth = 2)
+    # fixed priors
+    a ~ dnorm(150,100),
+    b ~ dnorm(7, 10),
+    sigma ~ dcauchy(0,10),
+    sigma_parameter ~ dcauchy(0,10),
+    Rho ~ dlkjcorr(2)
+    ),
+  data=d,
+  warmup=1000, iter=5000 , chains=4, cores = 4)
+
+
+
+```
+
+```{r}
+precis(m13.2h, pars = c("a", "b", "a_subject", "b_subject", "sigma", "sigma_parameter", "Rho"), depth = 3)
+post <- extract.samples(m13.2h,)
+a2 <- apply(post$a_subject, 2, mean)
+b2 <- apply(post$b_subject, 2, mean)
+a1 <- mean(post$a)
+b1 <- mean(post$b)
+plot(a2, b2, xlab = "intercept", ylab = "slope")
+dens(post$Rho[,1, 2])
+
+```
+
+
+A 1 unit increase in age increases hight by 6.51 (sd = .36).  The average height, assuming no age, is 149.33 cm (sd = 1.72).
+
+###Problem 3
+Since the correlation is positive, tall boys tend to get taller.
+
+###Problem 4
+```{r}
+library(MASS)
+set.seed(100)
+sa <- mean(post$sigma_parameter[,1])
+sb <- mean(post$sigma_parameter[,2])
+rho <- mean(post$Rho[,1,2])
+S  <- matrix(c(sa^2, sa*sb*rho, sb^2, sa*sb*rho), nrow = 2)
+a.sim <- mvrnorm(n=10, mu = c(a1, b1), Sigma = S)
+
+plot(x=0, y = a1 + b1, xlim=c(-1, 1))
+for (i in 1:10){
+  abline(a=a.sim[i,1], b =a.sim[i,2])
+}
+  
 ```

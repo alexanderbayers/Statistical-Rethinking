@@ -1,0 +1,13 @@
+---
+title: "Rethinking_Stats_Chapter_14.Rmd"
+author: "Alex Bayers"
+date: "26/03/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Easy
+###

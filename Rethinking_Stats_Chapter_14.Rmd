@@ -9,5 +9,44 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-#Easy
-###
+## Easy
+### Problem 1
+Our base model is as follows:
+
+$$
+\\T_i \sim  Poisson(\mu_i)
+\\log \> \mu_i = \alpha \> + \> \beta * log \> P_i
+\\\alpha \sim Normal(0, 10)
+\\\beta \sim Nornal(0, 1)
+$$
+The model with measurement error is as follows:
+
+$$
+\\T_i \sim  Posson(\mu_i)
+\\log \> \mu_i = \alpha \> + \> \beta * log \> P_{EST, i}
+\\P_{OBS, i} \sim Normal(P_{EST, i}, P_{SE,i})
+\\\alpha \sim Normal(0, 10)
+\\\beta \sim Nornal(0, 1)
+$$
+
+### Problem 2
+
+Our new model for unobserved populations follows below, allowing for unobserved populations.
+
+$$
+\\T_i \sim  Poisson(\mu_i)
+\\log \> \mu_i = \alpha \> + \> \beta * log \> P_i
+\\P_i \sim Normal(\nu, \sigma)
+\\\alpha \sim Normal(0, 10)
+\\\beta \sim Nornal(0, 1),
+\\nu \sim Normal(34000, 30000)
+\\\sigma \sim Cauchy(10000)
+$$
+
+## Medium
+### Problem 1
+In the mathematical model, when we have data missing, we are assuming a given distribution for the missing data.  In this case, we assume a mean for the missing data $$ \nu $$, and a standard deviation $$ \sigma_n $$.
+
+### Problem 2
+```{r}
+```

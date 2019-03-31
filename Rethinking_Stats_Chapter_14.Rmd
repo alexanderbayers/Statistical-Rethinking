@@ -211,7 +211,7 @@ precis(m6.14)
 
 The coefficient estimates are similar, though all shrunken.
 
-###Problem 3
+### Problem 3
 ```{r}
 ## R code 14.2
 library(rethinking)
@@ -271,3 +271,81 @@ coeftab(m14.1, m14.2)
 ```
 
 When we increase the variance on the measurement error, the coefficient bR goes up by a factor of 3, while the standard deviation goes down by 2/3.
+
+# Hard
+### Problem 1
+```{r}
+library(rethinking)
+data(elephants)
+d <- elephants
+
+m14.3 <- map2stan(
+    alist(
+        MATINGS ~ dpois(mu),
+        log(mu) <- a + bA*AGE,
+        a ~ dnorm(0,10),
+        bA ~ dnorm(0,1)
+    ) ,
+    data=elephants ,
+    iter=5000 , warmup=1000 , chains=2 , cores=2 ,
+    control=list(adapt_delta=0.95) )
+
+precis(m14.3)
+```
+
+```{r}
+m14.4 <- map2stan(
+    alist(
+        MATINGS ~ dpois(mu),
+        log(mu) <- a + bA*age_est[i],
+        AGE ~ dnorm(age_est, 5),
+        a ~ dnorm(0,10),
+        bA ~ dnorm(0,1)
+    ) ,
+    data=elephants ,
+    iter=5000 , warmup=1000 , chains=1 , cores=1 ,
+    control=list(adapt_delta=0.95), start = list(age_est=d$AGE) )
+
+precis(m14.4)
+```
+
+
+```{r}
+# extract link samples
+age.seq <- seq(from = 25, to = 55, length.out = 30)
+lambda <- link(fit = m14.3, data = list(AGE = age.seq))
+lambda.mean <- apply(lambda, MARGIN = 2, FUN = mean)
+lambda.PI <- apply(lambda, MARGIN = 2, FUN = PI)
+
+plot(MATINGS ~ AGE, data = d, col = rangi2, pch = 16)
+lines(x = age.seq, y = lambda.mean)
+shade(lambda.PI, age.seq)
+
+posterior.samples.se <- extract.samples(object = m14.4)
+AGE_true <- apply(X = posterior.samples.se$age_est, MARGIN = 2, FUN = mean)
+MATINGS_jitter <- jitter(d$MATINGS)
+plot(MATINGS_jitter ~ d$AGE, col = rangi2, pch = 16)
+points(AGE_true, MATINGS_jitter)
+for ( i in 1:nrow(d) )
+  lines( c(d$AGE[i], AGE_true[i]) , rep(MATINGS_jitter[i], 2) )
+```
+
+### Problem 2
+```{r}
+m14.5 <- map2stan(
+    alist(
+        MATINGS ~ dpois(mu),
+        log(mu) <- a + bA*age_est[i],
+        AGE ~ dnorm(age_est, 25),
+        a ~ dnorm(0,10),
+        bA ~ dnorm(0,1)
+    ) ,
+    data=elephants ,
+    iter=5000 , warmup=1000 , chains=1 , cores=1 ,
+    control=list(adapt_delta=0.95), start = list(age_est=d$AGE) )
+
+precis(m14.5)
+```
+
+Increasing the observation standard error to around 25 gets the coefficient bA to be about 1 SD from zero.
+

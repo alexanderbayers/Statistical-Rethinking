@@ -349,3 +349,54 @@ precis(m14.5)
 
 Increasing the observation standard error to around 25 gets the coefficient bA to be about 1 SD from zero.
 
+### Problem 3
+```{r}
+set.seed(100)
+x <- c( rnorm(10) , NA )
+y <- c( rnorm(10,x) , 100 )
+d <- data.frame(list(x=x,y=y))
+e <- d[complete.cases(d),]
+
+m14.6 <- map2stan(
+    alist(
+        y ~ dnorm(mu, sigma),
+        mu <- a + bX*x,
+        a ~ dnorm(0,100),
+        bX ~ dnorm(0,100),
+        sigma ~ dcauchy(0, 1)
+    ) ,
+    data=e ,
+    iter=5000 , warmup=1000 , chains=4 , cores=4 ,
+    control=list(adapt_delta=0.95) )
+
+precis(m14.6)
+```
+
+
+```{r}
+m14.7 <- map2stan(
+    alist(
+        y ~ dnorm(mu, sigma),
+        mu <- a + bX*x,
+        x ~ dnorm(0, 1),
+        a ~ dnorm(0,100),
+        bX ~ dnorm(0,100),
+        sigma ~ dcauchy(0, 1)
+    ) ,
+    data=d ,
+    iter=5000 , warmup=1000 , chains=4 , cores=4 ,
+    control=list(adapt_delta=0.95) )
+
+precis(m14.7)
+
+```
+
+```{r}
+post <- extract.samples(m14.7, 1000)
+post2 <- extract.samples(m14.6, 1000)
+dens(post$bX)
+dens(post2$bX)
+
+```
+
+The density of the bX sampling is bimodal under the missing data (and has substantially narrower bandwith) - This results from the low degree of acceptable imputation error relative to the coefficient error, which makes it less bothersome to change the coefficeients on our larger model.

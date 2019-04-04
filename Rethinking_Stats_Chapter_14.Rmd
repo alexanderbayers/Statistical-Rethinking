@@ -51,6 +51,7 @@ In the mathematical model, when we have data missing, we are assuming a given di
 ```{r}
 ## R code 6.21
 data(milk)
+<<<<<<< HEAD
 d <-milk
 d$neocortex <- d$neocortex.perc / 100
 dim(d)
@@ -81,4 +82,354 @@ m6.14 <- map(
         mu <- a + bn*neocortex + bm*log(mass)
     ) ,
     data=d , start=list(a=a.start,bn=0,bm=0,log.sigma=sigma.start) )
+=======
+d <- milk
+d$neocortex.prop <- d$neocortex.perc / 100
+data_list <- list(
+  kcal = d$kcal.per.g,
+  neocortex = d$neocortex.prop,
+  logmass = log(d$mass)
+)
+
+m6.11 <- map2stan(
+    alist(
+        kcal ~ dnorm(mu, sigma),
+        mu ~ dnorm(0, 1),
+        sigma ~ dcauchy(0, 1),
+        neocortex ~ dnorm(nu, sigma_N),
+        nu ~ dnorm(0.5, 2),
+        sigma_N ~ dcauchy(0, 2)
+    ),
+    data=data_list,
+    iter = 5000,
+    warmup = 1000,
+    cores = 4,
+    chains = 4)
+
+precis(m6.11, depth = 2)
 ```
+
+```{r}
+m6.12 <- map2stan(
+    alist(
+        kcal ~ dnorm(mu, sigma),
+        mu <- a  + bn*neocortex,
+        a ~ dnorm(0, 1),
+        bn ~ dnorm(0, 10),
+        sigma ~ dcauchy(0, 1),
+        neocortex ~ dnorm(nu, sigma_N),
+        nu ~ dnorm(0.5, 2),
+        sigma_N ~ dcauchy(0, 1)
+    ),
+    data=data_list,
+    iter = 5000,
+    warmup = 1000,
+    cores = 4,
+    chains = 4)
+
+precis(m6.12, depth = 2)
+```
+
+```{r}
+m6.13 <- map2stan(
+    alist(
+        kcal ~ dnorm(mu, sigma),
+        mu <- a  + bm*logmass,
+        a ~ dnorm(0, 1),
+        bm ~ dnorm(0, 10),
+        sigma ~ dcauchy(0, 1),
+        neocortex ~ dnorm(nu, sigma_N),
+        nu ~ dnorm(0.5, 2),
+        sigma_N ~ dcauchy(0, 1)
+    ),
+    data=data_list,
+    iter = 5000,
+    warmup = 1000,
+    cores = 1,
+    chains =14)
+
+precis(m6.13, depth = 2)
+```
+
+```{r}
+
+m6.14 <- map2stan(
+    alist(
+        kcal ~ dnorm(mu, sigma),
+        mu <- a  + bn*neocortex + bm*logmass,
+        a ~ dnorm(0, 1),
+        bm ~ dnorm(0, 10),
+        bn ~ dnorm(0, 10),
+        sigma ~ dcauchy(0, 1),
+        neocortex ~ dnorm(nu, sigma_N),
+        nu ~ dnorm(0.5, 1),
+        sigma_N ~ dcauchy(0, 1)
+    ),
+    data=data_list,
+    iter = 5000,
+    warmup = 1000,
+    cores = 1,
+    chains =14)
+
+precis(m6.14, depth = 2)
+```
+
+```{r}
+
+m6.15 <- map2stan(
+    alist(
+        kcal ~ dnorm(mu, sigma),
+        mu <- a  + bn*neocortex + bm*logmass,
+        a ~ dnorm(0, 1),
+        bm ~ dnorm(0, 10),
+        bn ~ dnorm(0, 10),
+        sigma ~ dcauchy(0, 1),
+        neocortex ~ dnorm(nu, sigma_N),
+        nu ~ a_N + gM*logmass,
+        a_N ~ dnorm(0.5, 1),
+        gM ~ dnorm(0, 10),
+        sigma_N ~ dcauchy(0, 1)
+    ),
+    data=data_list,
+    iter = 5000,
+    warmup = 1000,
+    cores = 1,
+    chains =14)
+
+precis(m6.15, depth = 2)
+>>>>>>> 5276d3aaa0a8d2e05ad9a1c2b0a964fd77d270d8
+```
+
+```{r}
+compare(m6.12, m6.13, m6.14, m6.15)
+```
+The multiple imputation model fits similar to the model with the complete cases.  
+
+```{r}
+## R code 6.21
+data(milk)
+d <- milk[ complete.cases(milk) , ]
+d$neocortex <- d$neocortex.perc / 100
+dim(d)
+
+## R code 6.22
+a.start <- mean(d$kcal.per.g)
+sigma.start <- log(sd(d$kcal.per.g))
+m6.11 <- map(
+    alist(
+        kcal.per.g ~ dnorm( a , exp(log.sigma) )
+    ) ,
+    data=d , start=list(a=a.start,log.sigma=sigma.start) )
+m6.12 <- map(
+    alist(
+        kcal.per.g ~ dnorm( mu , exp(log.sigma) ) ,
+        mu <- a + bn*neocortex
+    ) ,
+    data=d , start=list(a=a.start,bn=0,log.sigma=sigma.start) )
+m6.13 <- map(
+    alist(
+        kcal.per.g ~ dnorm( mu , exp(log.sigma) ) ,
+        mu <- a + bm*log(mass)
+    ) ,
+    data=d , start=list(a=a.start,bm=0,log.sigma=sigma.start) )
+m6.14 <- map(
+    alist(
+        kcal.per.g ~ dnorm( mu , exp(log.sigma) ) ,
+        mu <- a + bn*neocortex + bm*log(mass)
+    ) ,
+    data=d , start=list(a=a.start,bn=0,bm=0,log.sigma=sigma.start) )
+
+precis(m6.14)
+```
+
+The coefficient estimates are similar, though all shrunken.
+
+### Problem 3
+```{r}
+## R code 14.2
+library(rethinking)
+data(WaffleDivorce)
+d <- WaffleDivorce
+
+## R code 14.3
+dlist <- list(
+    div_obs=d$Divorce,
+    div_sd=d$Divorce.SE,
+    R=d$Marriage,
+    A=d$MedianAgeMarriage
+)
+
+m14.1 <- map2stan(
+    alist(
+        div_est ~ dnorm(mu,sigma),
+        mu <- a + bA*A + bR*R,
+        div_obs ~ dnorm(div_est,div_sd),
+        a ~ dnorm(0,10),
+        bA ~ dnorm(0,10),
+        bR ~ dnorm(0,10),
+        sigma ~ dcauchy(0,2.5)
+    ) ,
+    data=dlist ,
+    start=list(div_est=dlist$div_obs) ,
+    WAIC=FALSE , iter=5000 , warmup=1000 , chains=2 , cores=2 ,
+    control=list(adapt_delta=0.95) )
+
+## R code 14.4
+precis( m14.1 , depth=2 )
+
+## R code 14.3
+new_dlist <- list(
+    div_obs=d$Divorce,
+    div_sd=d$Divorce.SE*2,
+    R=d$Marriage,
+    A=d$MedianAgeMarriage
+)
+
+m14.2 <- map2stan(
+    alist(
+        div_est ~ dnorm(mu,sigma),
+        mu <- a + bA*A + bR*R,
+        div_obs ~ dnorm(div_est,div_sd),
+        a ~ dnorm(0,10),
+        bA ~ dnorm(0,10),
+        bR ~ dnorm(0,10),
+        sigma ~ dcauchy(0,2.5)
+    ) ,
+    data=new_dlist ,
+    start=list(div_est=new_dlist$div_obs) ,
+    WAIC=FALSE , iter=5000 , warmup=1000 , chains=2 , cores=2 ,
+    control=list(adapt_delta=0.95) )
+
+coeftab(m14.1, m14.2)
+```
+
+When we increase the variance on the measurement error, the coefficient bR goes up by a factor of 3, while the standard deviation goes down by 2/3.
+
+# Hard
+### Problem 1
+```{r}
+library(rethinking)
+data(elephants)
+d <- elephants
+
+m14.3 <- map2stan(
+    alist(
+        MATINGS ~ dpois(mu),
+        log(mu) <- a + bA*AGE,
+        a ~ dnorm(0,10),
+        bA ~ dnorm(0,1)
+    ) ,
+    data=elephants ,
+    iter=5000 , warmup=1000 , chains=2 , cores=2 ,
+    control=list(adapt_delta=0.95) )
+
+precis(m14.3)
+```
+
+```{r}
+m14.4 <- map2stan(
+    alist(
+        MATINGS ~ dpois(mu),
+        log(mu) <- a + bA*age_est[i],
+        AGE ~ dnorm(age_est, 5),
+        a ~ dnorm(0,10),
+        bA ~ dnorm(0,1)
+    ) ,
+    data=elephants ,
+    iter=5000 , warmup=1000 , chains=1 , cores=1 ,
+    control=list(adapt_delta=0.95), start = list(age_est=d$AGE) )
+
+precis(m14.4)
+```
+
+
+```{r}
+# extract link samples
+age.seq <- seq(from = 25, to = 55, length.out = 30)
+lambda <- link(fit = m14.3, data = list(AGE = age.seq))
+lambda.mean <- apply(lambda, MARGIN = 2, FUN = mean)
+lambda.PI <- apply(lambda, MARGIN = 2, FUN = PI)
+
+plot(MATINGS ~ AGE, data = d, col = rangi2, pch = 16)
+lines(x = age.seq, y = lambda.mean)
+shade(lambda.PI, age.seq)
+
+posterior.samples.se <- extract.samples(object = m14.4)
+AGE_true <- apply(X = posterior.samples.se$age_est, MARGIN = 2, FUN = mean)
+MATINGS_jitter <- jitter(d$MATINGS)
+plot(MATINGS_jitter ~ d$AGE, col = rangi2, pch = 16)
+points(AGE_true, MATINGS_jitter)
+for ( i in 1:nrow(d) )
+  lines( c(d$AGE[i], AGE_true[i]) , rep(MATINGS_jitter[i], 2) )
+```
+
+### Problem 2
+```{r}
+m14.5 <- map2stan(
+    alist(
+        MATINGS ~ dpois(mu),
+        log(mu) <- a + bA*age_est[i],
+        AGE ~ dnorm(age_est, 25),
+        a ~ dnorm(0,10),
+        bA ~ dnorm(0,1)
+    ) ,
+    data=elephants ,
+    iter=5000 , warmup=1000 , chains=1 , cores=1 ,
+    control=list(adapt_delta=0.95), start = list(age_est=d$AGE) )
+
+precis(m14.5)
+```
+
+Increasing the observation standard error to around 25 gets the coefficient bA to be about 1 SD from zero.
+
+### Problem 3
+```{r}
+set.seed(100)
+x <- c( rnorm(10) , NA )
+y <- c( rnorm(10,x) , 100 )
+d <- data.frame(list(x=x,y=y))
+e <- d[complete.cases(d),]
+
+m14.6 <- map2stan(
+    alist(
+        y ~ dnorm(mu, sigma),
+        mu <- a + bX*x,
+        a ~ dnorm(0,100),
+        bX ~ dnorm(0,100),
+        sigma ~ dcauchy(0, 1)
+    ) ,
+    data=e ,
+    iter=5000 , warmup=1000 , chains=4 , cores=4 ,
+    control=list(adapt_delta=0.95) )
+
+precis(m14.6)
+```
+
+
+```{r}
+m14.7 <- map2stan(
+    alist(
+        y ~ dnorm(mu, sigma),
+        mu <- a + bX*x,
+        x ~ dnorm(0, 1),
+        a ~ dnorm(0,100),
+        bX ~ dnorm(0,100),
+        sigma ~ dcauchy(0, 1)
+    ) ,
+    data=d ,
+    iter=5000 , warmup=1000 , chains=4 , cores=4 ,
+    control=list(adapt_delta=0.95) )
+
+precis(m14.7)
+
+```
+
+```{r}
+post <- extract.samples(m14.7, 1000)
+post2 <- extract.samples(m14.6, 1000)
+dens(post$bX)
+dens(post2$bX)
+
+```
+
+The density of the bX sampling is bimodal under the missing data (and has substantially narrower bandwith) - This results from the low degree of acceptable imputation error relative to the coefficient error, which makes it less bothersome to change the coefficeients on our larger model.
